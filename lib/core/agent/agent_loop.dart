@@ -499,7 +499,7 @@ If you have exhausted ALL approaches above (minimum 8-10 different attempts) and
     // External memory pre-fetch: search server memory before LLM call
     final extMemUrl = defaults.externalMemoryUrl;
     final extMemKey = defaults.externalMemoryKey;
-    if (extMemUrl != null \&\& extMemKey != null \&\& userContent is String \&\& userContent.isNotEmpty) {
+    if (extMemUrl != null && extMemKey != null && userContent is String && userContent.isNotEmpty) {
       final memCtx = await _preFetchMemories(
         userContent,
         externalMemoryUrl: extMemUrl,

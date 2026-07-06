@@ -173,8 +173,7 @@ class AgentsDefaults {
   /// See [kLiveVoices] for the full list of available voices.
   final String liveVoiceName;
 
-  /// External memory API URL (e.g. "http://43.136.91.254:8400").
-  /// When set, the agent pre-fetches relevant memories before each LLM call.
+  /// External memory API URL.
   final String? externalMemoryUrl;
 
   /// API key for the external memory service.
@@ -194,6 +193,8 @@ class AgentsDefaults {
     this.typingMode = 'instant',
     this.liveVoiceModelId,
     this.preferLiveVoiceBootstrap = false,
+    this.externalMemoryUrl,
+    this.externalMemoryKey,
     this.liveVoiceName = 'Puck',
   });
 
@@ -214,9 +215,9 @@ class AgentsDefaults {
     liveVoiceModelId: json['live_voice_model_id'] as String?,
     preferLiveVoiceBootstrap:
         json['prefer_live_voice_bootstrap'] as bool? ?? false,
-    liveVoiceName: json["live_voice_name"] as String? ?? "Puck",
-    externalMemoryUrl: json["external_memory_url"] as String?,
-    externalMemoryKey: json["external_memory_key"] as String?,
+    liveVoiceName: json['live_voice_name'] as String? ?? 'Puck',
+    externalMemoryUrl: json['external_memory_url'] as String?,
+    externalMemoryKey: json['external_memory_key'] as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -234,8 +235,8 @@ class AgentsDefaults {
     if (liveVoiceModelId != null) 'live_voice_model_id': liveVoiceModelId,
     'prefer_live_voice_bootstrap': preferLiveVoiceBootstrap,
     'live_voice_name': liveVoiceName,
-    if (externalMemoryUrl != null) "external_memory_url": externalMemoryUrl,
-    if (externalMemoryKey != null) "external_memory_key": externalMemoryKey,
+    if (externalMemoryUrl != null) 'external_memory_url': externalMemoryUrl,
+    if (externalMemoryKey != null) 'external_memory_key': externalMemoryKey,
   };
 
   AgentsDefaults copyWith({
