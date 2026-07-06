@@ -28,7 +28,12 @@ class FlutterClawApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final analytics = FirebaseAnalytics.instance;
+    FirebaseAnalytics? analytics;
+    try {
+      analytics = FirebaseAnalytics.instance;
+    } catch (e) {
+      debugPrint('[App] FirebaseAnalytics unavailable: $e');
+    }
 
     return ProviderScope(
       child: MaterialApp(
@@ -68,7 +73,7 @@ class FlutterClawApp extends StatelessWidget {
         ],
         home: const _AppRoot(),
         navigatorObservers: [
-          FirebaseAnalyticsObserver(analytics: analytics),
+          if (analytics != null) FirebaseAnalyticsObserver(analytics: analytics),
         ],
       ),
     );

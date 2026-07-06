@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutterclaw/app.dart';
@@ -13,22 +14,44 @@ import 'package:logging/logging.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Global Flutter error handler — catch widget-level crashes so they don't
+  // kill the app silently. Logged to console for debugging.
+  FlutterError.onError = (FlutterErrorDetails details) {
+    // ignore: avoid_print
+    print('[HERMES-FLUTTER-ERROR] ${details.exception}');
+    if (details.stack != null) {
+      // ignore: avoid_print
+      print('[HERMES-FLUTTER-ERROR] Stack: ${details.stack}');
+    }
+  };
+
+  // Also catch async errors not handled by Flutter
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    // ignore: avoid_print
+    print('[HERMES-ASYNC-ERROR] $error');
+    return true; // Don't kill the app
+  };
+
   Logger.root.level = Level.INFO;
   Logger.root.onRecord.listen((record) {
     // ignore: avoid_print
     print('[${record.level.name}] ${record.loggerName}: ${record.message}');
   });
 
-  // Live Activities initialization disabled - causes crashes on simulator
-  // The LiveActivityService will handle initialization lazily when needed
-  // This works fine on physical devices
   // ignore: avoid_print
   print('ℹ️ Live Activities: deferred initialization (physical devices only)');
 
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // Initialize Firebase — wrapped in try-catch so a failure doesn't kill the app
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    // ignore: avoid_print
+    print('✅ Firebase initialized');
+  } catch (e) {
+    // ignore: avoid_print
+    print('⚠️ Firebase init failed (app will continue without Firebase): $e');
+  }
 
   // Initialize audio service on iOS only. On Android the gateway runs in a
   // foreground service so we don't need audio for keep-alive; media_play
@@ -43,15 +66,28 @@ void main() async {
     // End any stale Live Activities left over from a previous session (force-close,
     // crash, etc.). The iOS gateway runs in-process, so if the app was killed the
     // gateway is definitely not running — it's always safe to clear here.
-    await LiveActivityService.endAllActivities();
+    try {
+      await LiveActivityService.endAllActivities();
+    } catch (e) {
+      // ignore: avoid_print
+      print('⚠️ LiveActivityService cleanup failed: $e');
+    }
   }
 
   // Only initialize flutter_foreground_task on Android
   // iOS uses a different approach with background audio
   if (Platform.isAndroid) {
-    FlutterForegroundTask.initCommunicationPort();
-    await BackgroundService.initializeService();
+    try {
+      FlutterForegroundTask.initCommunicationPort();
+      await BackgroundService.initializeService();
+      // ignore: avoid_print
+      print('✅ BackgroundService initialized');
+    } catch (e) {
+      // ignore: avoid_print
+      print('⚠️ BackgroundService init failed (app will continue): $e');
+    }
   }
 
+  // Always run the app, even if initialization failed
   runApp(const FlutterClawApp());
 }
