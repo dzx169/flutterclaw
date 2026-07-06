@@ -448,6 +448,35 @@ If you have exhausted ALL approaches above (minimum 8-10 different attempts) and
     }
   }
 
+  /// Stores a memory entry to the external memory API after processing.
+  Future<void> _storeMemory(
+    String content, {
+    String? externalMemoryUrl,
+    String? externalMemoryKey,
+    String userId = 'default',
+    String source = 'flutterclaw',
+  }) async {
+    if (externalMemoryUrl == null || externalMemoryKey == null || content.isEmpty) return;
+    try {
+      final uri = Uri.parse('$externalMemoryUrl/store');
+      await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $externalMemoryKey',
+        },
+        body: jsonEncode({
+          'content': content,
+          'user_id': userId,
+          'source': source,
+        }),
+      ).timeout(const Duration(seconds: 5));
+      _log.info('MemoryStore: stored entry (${content.length} chars)');
+    } catch (e) {
+      _log.warning('MemoryStore failed: $e');
+    }
+  }
+
   Future<AgentResponse> processMessage(
     String sessionKey,
     String message, {
@@ -475,6 +504,19 @@ If you have exhausted ALL approaches above (minimum 8-10 different attempts) and
         sessionKey,
         LlmMessage(role: 'user', content: userContent),
       );
+      // Store user message to external memory (fire-and-forget)
+      if (userContent is String && userContent.trim().isNotEmpty) {
+        final extMemUrl = configManager.config.agents.defaults.externalMemoryUrl;
+        final extMemKey = configManager.config.agents.defaults.externalMemoryKey;
+        if (extMemUrl != null && extMemKey != null) {
+          unawaited(_storeMemory(
+            userContent,
+            externalMemoryUrl: extMemUrl,
+            externalMemoryKey: extMemKey,
+            source: 'flutterclaw_user',
+          ));
+        }
+      }
     }
 
     var context = sessionManager.getContextMessages(sessionKey);
@@ -798,6 +840,18 @@ If you have exhausted ALL approaches above (minimum 8-10 different attempts) and
             sessionMeta.displayName == null &&
             sessionMeta.messageCount <= 4) {
           _autoTitleSession(sessionKey, message, content, modelEntry);
+        }
+
+        // Store assistant response to external memory (fire-and-forget)
+        final storeUrl = configManager.config.agents.defaults.externalMemoryUrl;
+        final storeKey = configManager.config.agents.defaults.externalMemoryKey;
+        if (storeUrl != null && storeKey != null && content.trim().isNotEmpty) {
+          unawaited(_storeMemory(
+            content,
+            externalMemoryUrl: storeUrl,
+            externalMemoryKey: storeKey,
+            source: 'flutterclaw_assistant',
+          ));
         }
 
         return AgentResponse(

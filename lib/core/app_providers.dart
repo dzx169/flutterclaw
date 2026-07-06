@@ -2970,19 +2970,28 @@ class ChatNotifier extends Notifier<List<ChatMessage>> {
 }
 
 final appInitializedProvider = FutureProvider<bool>((ref) async {
-  final configManager = ref.read(configManagerProvider);
-  await configManager.ensureDirectories();
-  await configManager.load();
+  try {
+    await Future.any([
+      Future.wait([
+        (() async {
+          final configManager = ref.read(configManagerProvider);
+          await configManager.ensureDirectories();
+          await configManager.load();
 
-  final sessionManager = ref.read(sessionManagerProvider);
-  await sessionManager.load();
+          final sessionManager = ref.read(sessionManagerProvider);
+          await sessionManager.load();
 
-  // Start channels and cron if onboarding is complete
-  // Gateway will be started separately after UI is ready
-  if (configManager.config.onboardingCompleted) {
-    await ref.read(channelStartupProvider.future);
+          // Start channels and cron if onboarding is complete
+          if (configManager.config.onboardingCompleted) {
+            await ref.read(channelStartupProvider.future);
+          }
+        })(),
+      ]),
+      Future.delayed(const Duration(seconds: 12)),
+    ]);
+  } catch (e) {
+    debugPrint('[AppInit] Initialization timeout or error: $e');
   }
-
   return true;
 });
 
