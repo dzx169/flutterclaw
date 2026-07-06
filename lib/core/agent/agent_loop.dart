@@ -24,6 +24,8 @@ import 'package:flutterclaw/data/models/model_catalog.dart';
 import 'package:flutterclaw/services/hook_runner.dart';
 import 'package:flutterclaw/services/ui_automation_service.dart';
 import 'package:flutterclaw/tools/registry.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 
 final _log = Logger('flutterclaw.agent_loop');
@@ -409,6 +411,43 @@ If you have exhausted ALL approaches above (minimum 8-10 different attempts) and
   /// produces before a tool call. This lets channel handlers forward
   /// intermediate progress to the user (e.g. on Telegram) instead of only
   /// sending the final response after the entire tool loop completes.
+  /// Pre-fetches relevant memories from an external memory API.
+  Future<List<LlmMessage>> _preFetchMemories(
+    String userMessage, {
+    String? externalMemoryUrl,
+    String? externalMemoryKey,
+  }) async {
+    if (externalMemoryUrl == null || externalMemoryKey == null) return [];
+    try {
+      final uri = Uri.parse('$externalMemoryUrl/search');
+      final response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $externalMemoryKey',
+        },
+        body: jsonEncode({'query': userMessage, 'top_k': 5}),
+      ).timeout(const Duration(seconds: 5));
+      if (response.statusCode != 200) return [];
+      final data = jsonDecode(response.body);
+      final results = data['results'] ?? data['items'] ?? [];
+      if (results.isEmpty) return [];
+      final buffer = StringBuffer('## Relevant memories from previous conversations:\n');
+      for (final r in results) {
+        final c = r['content'] ?? '';
+        final score = r['score'] ?? 0;
+        if (score >= 0.3 && c.isNotEmpty) buffer.writeln('- $c');
+      }
+      final memText = buffer.toString().trim();
+      if (memText.isEmpty) return [];
+      _log.info('MemoryPreFetch: injected ${results.length} memories');
+      return [LlmMessage(role: 'system', content: memText)];
+    } catch (e) {
+      _log.warning('MemoryPreFetch failed: $e');
+      return [];
+    }
+  }
+
   Future<AgentResponse> processMessage(
     String sessionKey,
     String message, {
@@ -448,6 +487,22 @@ If you have exhausted ALL approaches above (minimum 8-10 different attempts) and
       messages.add(LlmMessage(role: 'system', content: ephemeralContext));
     }
     messages.addAll(context);
+
+    // External memory pre-fetch: search server memory before LLM call
+    final extMemUrl = defaults.externalMemoryUrl;
+    final extMemKey = defaults.externalMemoryKey;
+    if (extMemUrl != null && extMemKey != null && userContent is String && userContent.isNotEmpty) {
+      final memCtx = await _preFetchMemories(
+        userContent,
+        externalMemoryUrl: extMemUrl,
+        externalMemoryKey: extMemKey,
+      );
+      if (memCtx.isNotEmpty) {
+        final sysIdx = messages.indexWhere((m) => m.role == 'system');
+        final insertAt = sysIdx >= 0 ? sysIdx + 1 : 0;
+        messages.insertAll(insertAt, memCtx);
+      }
+    }
 
     if (!messages.any((m) => m.role == 'user' || m.role == 'assistant')) {
       messages.add(const LlmMessage(role: 'user', content: '.'));

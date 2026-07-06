@@ -173,6 +173,13 @@ class AgentsDefaults {
   /// See [kLiveVoices] for the full list of available voices.
   final String liveVoiceName;
 
+  /// External memory API URL (e.g. "http://43.136.91.254:8400").
+  /// When set, the agent pre-fetches relevant memories before each LLM call.
+  final String? externalMemoryUrl;
+
+  /// API key for the external memory service.
+  final String? externalMemoryKey;
+
   const AgentsDefaults({
     this.workspace = '~/.flutterclaw/workspace',
     this.modelName = 'gpt-4o',
@@ -207,7 +214,9 @@ class AgentsDefaults {
     liveVoiceModelId: json['live_voice_model_id'] as String?,
     preferLiveVoiceBootstrap:
         json['prefer_live_voice_bootstrap'] as bool? ?? false,
-    liveVoiceName: json['live_voice_name'] as String? ?? 'Puck',
+    liveVoiceName: json["live_voice_name"] as String? ?? "Puck",
+    externalMemoryUrl: json["external_memory_url"] as String?,
+    externalMemoryKey: json["external_memory_key"] as String?,
   );
 
   Map<String, dynamic> toJson() => {
@@ -224,7 +233,9 @@ class AgentsDefaults {
     'typing_mode': typingMode,
     if (liveVoiceModelId != null) 'live_voice_model_id': liveVoiceModelId,
     'prefer_live_voice_bootstrap': preferLiveVoiceBootstrap,
-    'live_voice_name': liveVoiceName,
+    .live_voice_name.: liveVoiceName,
+    if (externalMemoryUrl != null) "external_memory_url": externalMemoryUrl,
+    if (externalMemoryKey != null) "external_memory_key": externalMemoryKey,
   };
 
   AgentsDefaults copyWith({
@@ -243,6 +254,8 @@ class AgentsDefaults {
     bool? preferLiveVoiceBootstrap,
     bool clearLiveVoiceModelId = false,
     String? liveVoiceName,
+    String? externalMemoryUrl,
+    String? externalMemoryKey,
   }) {
     return AgentsDefaults(
       workspace: workspace ?? this.workspace,
@@ -262,6 +275,8 @@ class AgentsDefaults {
       preferLiveVoiceBootstrap:
           preferLiveVoiceBootstrap ?? this.preferLiveVoiceBootstrap,
       liveVoiceName: liveVoiceName ?? this.liveVoiceName,
+      externalMemoryUrl: externalMemoryUrl ?? this.externalMemoryUrl,
+      externalMemoryKey: externalMemoryKey ?? this.externalMemoryKey,
     );
   }
 }
