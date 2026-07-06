@@ -488,10 +488,18 @@ If you have exhausted ALL approaches above (minimum 8-10 different attempts) and
     }
     messages.addAll(context);
 
+
+    if (!messages.any((m) => m.role == 'user' || m.role == 'assistant')) {
+      messages.add(const LlmMessage(role: 'user', content: '.'));
+    }
+
+    // Use the session's agent settings, fall back to defaults
+    final defaults = configManager.config.agents.defaults;
+
     // External memory pre-fetch: search server memory before LLM call
     final extMemUrl = defaults.externalMemoryUrl;
     final extMemKey = defaults.externalMemoryKey;
-    if (extMemUrl != null && extMemKey != null && userContent is String && userContent.isNotEmpty) {
+    if (extMemUrl != null \&\& extMemKey != null \&\& userContent is String \&\& userContent.isNotEmpty) {
       final memCtx = await _preFetchMemories(
         userContent,
         externalMemoryUrl: extMemUrl,
@@ -504,12 +512,6 @@ If you have exhausted ALL approaches above (minimum 8-10 different attempts) and
       }
     }
 
-    if (!messages.any((m) => m.role == 'user' || m.role == 'assistant')) {
-      messages.add(const LlmMessage(role: 'user', content: '.'));
-    }
-
-    // Use the session's agent settings, fall back to defaults
-    final defaults = configManager.config.agents.defaults;
     final modelName =
         session?.modelOverride ?? sessionAgent?.modelName ?? defaults.modelName;
     final temperature = sessionAgent?.temperature ?? defaults.temperature;

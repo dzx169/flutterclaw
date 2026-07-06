@@ -233,7 +233,7 @@ class AgentsDefaults {
     'typing_mode': typingMode,
     if (liveVoiceModelId != null) 'live_voice_model_id': liveVoiceModelId,
     'prefer_live_voice_bootstrap': preferLiveVoiceBootstrap,
-    .live_voice_name.: liveVoiceName,
+    'live_voice_name': liveVoiceName,
     if (externalMemoryUrl != null) "external_memory_url": externalMemoryUrl,
     if (externalMemoryKey != null) "external_memory_key": externalMemoryKey,
   };
