@@ -1606,8 +1606,14 @@ class ChatNotifier extends Notifier<List<ChatMessage>> {
     // Signal the agent loop so it aborts before the next LLM call / tool
     // execution and closes the transcript cleanly (no orphaned tool calls).
     ref.read(agentLoopProvider).requestCancel(_getSessionKey());
-    _activeSubscription?.cancel();
-    _activeSubscription = null;
+    // Do NOT cancel _activeSubscription here — doing so terminates the stream
+    // generator prematurely, preventing the agent loop from running its cleanup
+    // (persisting stub tool results etc.). The agent loop checks
+    // _isCancelRequested at each LLM call / tool boundary and will exit
+    // cleanly on its own. Meanwhile _forEachCancellable's event handler
+    // already skips all events when _cancelled is true, so no new UI updates
+    // reach the user. The stream's onDone callback completes the future,
+    // _forEachCancellable returns, and the finally block sets _processing=false.
     // Immediately mark the last assistant bubble as done so the UI updates.
     final updated = List<ChatMessage>.from(state);
     if (updated.isNotEmpty && !updated.last.isUser) {

@@ -42,12 +42,17 @@ void main() async {
   print('ℹ️ Live Activities: deferred initialization (physical devices only)');
 
   // Initialize Firebase — wrapped in try-catch so a failure doesn't kill the app
+  // Also add a 5-second timeout because Firebase can hang on the platform channel
+  // when Google Play Services is unresponsive (common after killing and reopening).
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
-    );
+    ).timeout(const Duration(seconds: 5));
     // ignore: avoid_print
     print('✅ Firebase initialized');
+  } on TimeoutException {
+    // ignore: avoid_print
+    print('⚠️ Firebase init timed out (app will continue without Firebase)');
   } catch (e) {
     // ignore: avoid_print
     print('⚠️ Firebase init failed (app will continue without Firebase): $e');
@@ -79,9 +84,12 @@ void main() async {
   if (Platform.isAndroid) {
     try {
       FlutterForegroundTask.initCommunicationPort();
-      await BackgroundService.initializeService();
+      await BackgroundService.initializeService().timeout(const Duration(seconds: 5));
       // ignore: avoid_print
       print('✅ BackgroundService initialized');
+    } on TimeoutException {
+      // ignore: avoid_print
+      print('⚠️ BackgroundService init timed out (app will continue)');
     } catch (e) {
       // ignore: avoid_print
       print('⚠️ BackgroundService init failed (app will continue): $e');
