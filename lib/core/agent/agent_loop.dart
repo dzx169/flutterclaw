@@ -972,6 +972,19 @@ If you have exhausted ALL approaches above (minimum 8-10 different attempts) and
         sessionKey,
         LlmMessage(role: 'user', content: userContent),
       );
+      // Store user message to external memory (fire-and-forget)
+      if (userContent is String && userContent.trim().isNotEmpty) {
+        final extMemUrl = configManager.config.agents.defaults.externalMemoryUrl;
+        final extMemKey = configManager.config.agents.defaults.externalMemoryKey;
+        if (extMemUrl != null && extMemKey != null) {
+          unawaited(_storeMemory(
+            userContent,
+            externalMemoryUrl: extMemUrl,
+            externalMemoryKey: extMemKey,
+            source: 'flutterclaw_user',
+          ));
+        }
+      }
     }
 
     var context = sessionManager.getContextMessages(sessionKey);
@@ -1017,6 +1030,23 @@ If you have exhausted ALL approaches above (minimum 8-10 different attempts) and
 
     // Use the session's agent settings, fall back to defaults
     final defaults = configManager.config.agents.defaults;
+
+    // External memory pre-fetch: search server memory before LLM call
+    final extMemUrl = defaults.externalMemoryUrl;
+    final extMemKey = defaults.externalMemoryKey;
+    if (extMemUrl != null && extMemKey != null && userContent is String && userContent.isNotEmpty) {
+      final memCtx = await _preFetchMemories(
+        userContent,
+        externalMemoryUrl: extMemUrl,
+        externalMemoryKey: extMemKey,
+      );
+      if (memCtx.isNotEmpty) {
+        final sysIdx = messages.indexWhere((m) => m.role == 'system');
+        final insertAt = sysIdx >= 0 ? sysIdx + 1 : 0;
+        messages.insertAll(insertAt, memCtx);
+      }
+    }
+
     var modelName =
         session?.modelOverride ?? sessionAgent?.modelName ?? defaults.modelName;
     final temperature = sessionAgent?.temperature ?? defaults.temperature;
@@ -1426,6 +1456,18 @@ If you have exhausted ALL approaches above (minimum 8-10 different attempts) and
           sessionKey,
           LlmMessage(role: 'assistant', content: contentBuffer),
         );
+
+        // Store assistant response to external memory (fire-and-forget)
+        final storeUrl = configManager.config.agents.defaults.externalMemoryUrl;
+        final storeKey = configManager.config.agents.defaults.externalMemoryKey;
+        if (storeUrl != null && storeKey != null && contentBuffer.trim().isNotEmpty) {
+          unawaited(_storeMemory(
+            contentBuffer,
+            externalMemoryUrl: storeUrl,
+            externalMemoryKey: storeKey,
+            source: 'flutterclaw_assistant',
+          ));
+        }
 
         // Auto-title: mirror the non-streaming path trigger
         final streamSessionMeta = sessionManager.listSessions()
