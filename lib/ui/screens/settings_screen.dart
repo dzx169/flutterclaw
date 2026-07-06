@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutterclaw/core/app_providers.dart';
 import 'package:flutterclaw/core/package_info_provider.dart';
+import 'package:flutterclaw/data/models/config.dart';
 import 'package:flutterclaw/l10n/l10n_extension.dart';
 import 'package:flutterclaw/ui/screens/settings/about_screen.dart';
 import 'package:flutterclaw/ui/screens/settings/gateway_screen.dart';
@@ -123,6 +124,18 @@ class SettingsScreen extends ConsumerWidget {
           ),
           _SettingsTile(
             index: 5,
+            icon: Icons.memory_outlined,
+            title: 'External Memory',
+            subtitle: config.agents.defaults.externalMemoryUrl != null
+                ? 'Connected to ${config.agents.defaults.externalMemoryUrl}'
+                : 'Not configured',
+            subtitleColor: config.agents.defaults.externalMemoryUrl != null
+                ? null
+                : colors.error,
+            onTap: () => _showMemoryConfigDialog(context, ref),
+          ),
+          _SettingsTile(
+            index: 6,
             icon: Icons.info_outline,
             title: context.l10n.about,
             subtitle: ref.watch(packageInfoProvider).when(
@@ -145,6 +158,71 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+Future<void> _showMemoryConfigDialog(BuildContext context, WidgetRef ref) async {
+  final config = ref.read(configManagerProvider).config;
+  final urlCtl = TextEditingController(
+    text: config.agents.defaults.externalMemoryUrl ?? '',
+  );
+  final keyCtl = TextEditingController(
+    text: config.agents.defaults.externalMemoryKey ?? '',
+  );
+
+  final saved = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('External Memory'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: urlCtl,
+            decoration: const InputDecoration(
+              labelText: 'Server URL',
+              hintText: 'http://ip:port',
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: keyCtl,
+            decoration: const InputDecoration(
+              labelText: 'API Key',
+              hintText: 'your-api-key',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  );
+
+  if (saved == true) {
+    final mgr = ref.read(configManagerProvider);
+    mgr.update(config.copyWith(
+      agents: config.agents.copyWith(
+        defaults: config.agents.defaults.copyWith(
+          externalMemoryUrl: urlCtl.text.trim().isEmpty
+              ? null
+              : urlCtl.text.trim(),
+          externalMemoryKey: keyCtl.text.trim().isEmpty
+              ? null
+              : keyCtl.text.trim(),
+        ),
+      ),
+    ));
+    await mgr.save();
+    ref.invalidate(configManagerProvider);
   }
 }
 
